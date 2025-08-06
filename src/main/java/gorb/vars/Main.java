@@ -6,6 +6,7 @@ import gorb.vars.processors.CensorProcessor;
 import gorb.vars.serialization.MessageDeserializer;
 import gorb.vars.serialization.MessageSerializer;
 import gorb.vars.transformers.FilterTransformer;
+import org.apache.kafka.clients.producer.ProducerConfig;
 import org.apache.kafka.common.serialization.Serde;
 import org.apache.kafka.common.serialization.Serdes;
 import org.apache.kafka.streams.*;
@@ -27,6 +28,12 @@ public class Main {
         props.put(StreamsConfig.DEFAULT_VALUE_SERDE_CLASS_CONFIG, Serdes.String().getClass());
         props.put(StreamsConfig.STATE_DIR_CONFIG, "/tmp/kafka-streams");
         props.put(StreamsConfig.PROCESSING_GUARANTEE_CONFIG, StreamsConfig.EXACTLY_ONCE_V2);
+        props.put(StreamsConfig.producerPrefix(ProducerConfig.RETRIES_CONFIG), 3); //Количество попыток
+        props.put(StreamsConfig.producerPrefix(ProducerConfig.ACKS_CONFIG), "all"); //Подтверждение записи
+        props.put(StreamsConfig.producerPrefix(ProducerConfig.DELIVERY_TIMEOUT_MS_CONFIG), 120000); // Таймаут доставки
+        props.put(StreamsConfig.producerPrefix(ProducerConfig.REQUEST_TIMEOUT_MS_CONFIG), 30000); // Таймаут запроса
+        props.put(StreamsConfig.producerPrefix(ProducerConfig.MAX_IN_FLIGHT_REQUESTS_PER_CONNECTION), 1); //Каждое следующее сообщение отправляется только
+        // после успешного подтверждения предыдущего
 
         StreamsBuilder builder = new StreamsBuilder();
 
@@ -65,7 +72,8 @@ public class Main {
                 .filter((key, msg) -> msg != null); // убрать заблокированные
 
         // Запись в выходной топик
-        final Serde<Message> messageSerde = Serdes.serdeFrom(new MessageSerializer(), new MessageDeserializer());
+        final Serde<Message> messageSerde = Serdes.serdeFrom(new MessageSerializer(),
+                new MessageDeserializer());
         filteredMessages.to("filtered_messages", Produced.with(Serdes.String(), messageSerde));
 
         // Сборка и запуск

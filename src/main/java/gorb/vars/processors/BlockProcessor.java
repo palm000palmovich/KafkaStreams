@@ -7,7 +7,6 @@ import org.apache.kafka.streams.processor.ProcessorContext;
 import org.apache.kafka.streams.state.KeyValueStore;
 
 import java.io.IOException;
-import java.util.Arrays;
 import java.util.HashSet;
 import java.util.Set;
 import org.slf4j.Logger;
@@ -21,7 +20,7 @@ public class BlockProcessor implements Processor<String, String> {
     /**
      * Хранилище заблокированных юзеров.
      */
-    private KeyValueStore<String, String> blockedStore;
+    private KeyValueStore<String, Set<String>> blockedStore;
     private final ObjectMapper mapper = new ObjectMapper();
 
     private final Logger logger = LoggerFactory.getLogger(BlockProcessor.class);
@@ -43,15 +42,16 @@ public class BlockProcessor implements Processor<String, String> {
             /**
              * Текущий ЧС.
              */
-            String current = blockedStore.get(owner);
-            Set<String> blockedSet = current == null ? new HashSet<>()
-                    : new HashSet<>(Arrays.asList(current.split(",")));
+            Set<String> blockedSet = blockedStore.get(owner);
+            if (blockedSet == null) {
+                blockedSet = new HashSet<>();
+            }
 
             /**
              * Обновляем ЧС.
              */
             blockedSet.add(blocked);
-            blockedStore.put(owner, String.join(",", blockedSet)); //Обновляем StateStore
+            blockedStore.put(owner, blockedSet); //Обновляем StateStore
 
             logger.info("User {} blocked {}", owner, blocked);
         } catch (IOException e) {
